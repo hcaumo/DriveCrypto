@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Private
 // Developed by Lameni - @lamencrypto
 // Architected by GLHC - glhc.eth
+// Contract modified by GLHC after SpyWolf audit
 // SmartContract License. This SmartContract is protected by copyright laws and international copyright treaties,
 // as well as other intellectual property laws and treaties. This SmartContract is licensed for Drive Crypto without expiration.
 
@@ -20,7 +21,7 @@ contract DriveCrypto is GasHelper, ERC20 {
   // address constant private WBNB = 0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd; // BSC WBNB TESTET
 
   string constant private _nameToken = "Drive Crypto";
-  string constant private _symbolToken = "$DRIVECRYPTO";
+  string constant private _symbolToken = "DRIVECRYPTO";
   string constant public author = "Lameni";
 
   // Token Details
@@ -38,7 +39,7 @@ contract DriveCrypto is GasHelper, ERC20 {
   uint256 public feeReward; // 0%
   uint256 public feeBurn; // 0%
 
-  uint constant private maxTotalFee = 1600; // fee will never ever be higher than 16
+  uint constant private maxTotalFee = 1000; // fee will never ever be higher than 10
   mapping(address => uint) public specialFeesByWallet;
   mapping(address => uint) public specialFeesByWalletReceiver;
 
@@ -72,7 +73,7 @@ contract DriveCrypto is GasHelper, ERC20 {
   uint256 public minTokenHoldToStake = 100 * (10 ** decimal); // min amount holder must have to be able to receive rewards
   uint256 public totalTokens;
   uint256 private stakePerShare;
-  uint256 public rewardWithdrawWaitTime = 86400; // 24 hours
+  uint256 public rewardWithdrawWaitTime = 86400; // 1 day
   uint256 constant private stakePrecision = 10 ** 18;
 
   struct Receivers { address wallet; uint256 amount; }
@@ -90,9 +91,9 @@ contract DriveCrypto is GasHelper, ERC20 {
     liquidityPool = address(PancakeFactory(factory).createPair(WBNB, address(this)));
     secondaryPair = address(PancakeFactory(factory).getPair(WBNB, BUSD));
 
-    administrativeWallet = 0xD005D6b61fd26d9e675f9d4FFE72aFCdf03B0900;
+    administrativeWallet = 0x201D309061F8a967399B8f984619e202c0443bC7;
     _permissions[administrativeWallet] = 15; // exempt fee, fee receiver, tx limit and wallet limit
-    internalFundWallet = 0xc25438B734865ecc68b2B5cAB39a4A0D53FEf7d7;
+    internalFundWallet = 0xA98774a1b5a3C3e179766633D46BcEc5A84Db74E;
     _permissions[internalFundWallet] = 15; // exempt fee, fee receiver, tx limit and wallet limit
 
     uint baseAttributes = 0;
@@ -162,7 +163,11 @@ contract DriveCrypto is GasHelper, ERC20 {
   function setSecondaryPair(address newPair) external isAdmin { require(newPair != address(0), "invalid new pair address"); secondaryPair = newPair; }
   function setPausedSwapFee(bool state) external isAdmin { pausedSwapFee = state; }
   function setDisabledReward(bool state) external isAdmin { disabledReward = state; }
-  function setRewardWithdrawWaitTime(uint valueInSeconds) external isAdmin { rewardWithdrawWaitTime = valueInSeconds; }
+  function setRewardWithdrawWaitTime(uint valueInSeconds) external isAdmin 
+  {     
+      require(valueInSeconds <= 864000, "Maximum reward withdraw wait time 10 days");
+      rewardWithdrawWaitTime = valueInSeconds; 
+    }
 
   // ----------------- Wallets Settings -----------------
   function setAdministrativeWallet(address account) public isAdmin {
@@ -181,11 +186,11 @@ contract DriveCrypto is GasHelper, ERC20 {
     feeInternalFundWallet = internalFund;
     feeReward = rewardFee;
     feeBurn = burnFee;
-    require(getFeeTotal() <= maxTotalFee, "All rates and fee together must be equal or lower than 16%");
+    require(getFeeTotal() <= maxTotalFee, "All rates and fee together must be equal or lower than 10%");
   }
 
   function setSpecialWallet(address target, bool isSender, uint administrative, uint internalFund, uint reward, uint burnFee) internal isFinancial {
-    require(administrative + internalFund + reward + burnFee <= maxTotalFee, "All rates and fee together must be equal or lower than 16%");
+    require(administrative + internalFund + reward + burnFee <= maxTotalFee, "All rates and fee together must be equal or lower than 10%");
     uint composedValue = administrative + (internalFund * 1e4) + (reward * 1e8) + (burnFee * 1e12);
     if (isSender) {
       specialFeesByWallet[target] = composedValue;
@@ -199,12 +204,12 @@ contract DriveCrypto is GasHelper, ERC20 {
 
   // ----------------- Token Flow Settings -----------------
   function setMaxTxAmount(uint256 maxTxAmount) public isFinancial {
-    require(maxTxAmount >= maxSupply / 10000, "Amount must be bigger then 0.01% tokens"); // 10000 tokens
+    require(maxTxAmount >= maxSupply / 1000, "Amount must be bigger then 0.1% tokens"); // 1M tokens
     _maxTxAmount = maxTxAmount;
   }
 
   function setMaxAccountAmount(uint256 maxAccountAmount) public isFinancial {
-    require(maxAccountAmount >= maxSupply / 10000, "Amount must be bigger then 0.01% tokens"); // 10000 tokens
+    require(maxAccountAmount >= maxSupply / 100, "Amount must be bigger then 1% tokens"); // 10M tokens
     _maxAccountAmount = maxAccountAmount;
   }
   function setMinAmountToAutoSwap(uint256 amount) public isFinancial {
